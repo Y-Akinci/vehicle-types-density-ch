@@ -98,6 +98,8 @@ def gemeindestand_vereinheitlichen(antrieb, einwohner, geo):
         pd.to_numeric,
         errors="coerce",
     )
+    if antrieb[jahr_spalten].isna().any().any():
+        raise ValueError("Antrieb enthält fehlende oder ungültige Jahreswerte.")
 
     gruppen = ["gemeinde_nr", "Gemeinde", "Fahrzeuggruppe", "Treibstoff"]
     antrieb = (
@@ -119,13 +121,17 @@ def einwohner_umformen(einwohner: pd.DataFrame) -> pd.DataFrame:
         einwohner["Staatsangehörigkeit - Total"],
         errors="coerce",
     )
+    if einwohner.loc[einwohner["gemeinde_nr"].notna(), "Jahr"].isna().any():
+        raise ValueError("Einwohner enthält fehlende oder ungültige Jahre.")
     einwohner = einwohner[
         einwohner["Jahr"].between(ANALYSE_STARTJAHR, ANALYSE_ENDJAHR)
     ]
+    einwohner = einwohner.dropna(subset=["gemeinde_nr"])
+    if einwohner["Staatsangehörigkeit - Total"].isna().any():
+        raise ValueError("Einwohner enthält fehlende oder ungültige Zahlen.")
 
     return (
         einwohner
-        .dropna(subset=["gemeinde_nr"])
         .pivot_table(
             index="gemeinde_nr",
             columns="Jahr",
