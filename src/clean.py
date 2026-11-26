@@ -41,7 +41,7 @@ def anfuehrungszeichen_entfernen(df: pd.DataFrame) -> pd.DataFrame:
     return df.replace('"', "", regex=True)
 
 
-def bfs_nummern_hinzufügen(antrieb, einwohner, geo):
+def bfs_nummern_hinzufuegen(antrieb, einwohner, geo):
     antrieb = antrieb.copy()
     einwohner = einwohner.copy()
     geo = geo.copy()
@@ -149,7 +149,7 @@ def daten_bereinigen(antrieb, einwohner, geo):
     einwohner = anfuehrungszeichen_entfernen(einwohner)
     geo = anfuehrungszeichen_entfernen(geo)
 
-    antrieb, einwohner, geo = bfs_nummern_hinzufügen(
+    antrieb, einwohner, geo = bfs_nummern_hinzufuegen(
         antrieb,
         einwohner,
         geo,
