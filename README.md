@@ -1,28 +1,44 @@
-# Personenwagenbestand und Einwohnerdichte im Kanton Zürich
+# Personenwagen und Einwohnerdichte im Kanton Zürich
 
-Die Pipeline analysiert den Personenwagenbestand, seine Antriebsarten und die Einwohnerdichte für die 160 politischen Gemeinden des Kantons Zürich von 2010 bis 2024. Sie erstellt 2024er Gemeindekarten mit GeoPandas.
+Fahren die Menschen in dicht besiedelten Gemeinden andere Autos als auf dem Land? Um das herauszufinden, schauen wir uns die 160 Gemeinden im Kanton Zürich von 2010 bis 2024 an. Für jede Gemeinde wissen wir, wie viele Personenwagen es gibt, welchen Antrieb sie haben und wie dicht die Gemeinde besiedelt ist. Daraus erstellt die Pipeline Grafiken, Karten und einen kurzen Bericht.
 
-## Ausführen
+## Pipeline starten
 
-Python 3.11 oder neuer verwenden und im Projektverzeichnis ausführen:
+Du brauchst Python 3.11 oder neuer. Führe diese Befehle im Projektordner aus.
 
 ```bash
 python -m venv .venv
-# Virtuelle Umgebung aktivieren; unter Windows: .venv\Scripts\Activate.ps1
+source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m src.pipeline
 ```
 
-Die Pipeline speichert zwei Zeitreihen, acht Karten für 2024 und zwei Streudiagramme in `outputs/figures/`. Die Zeitreihen zeigen die kantonalen Antriebsanteile und die Bestände je Antriebsart in der Stadt Zürich von 2010 bis 2024. Die Streudiagramme vergleichen die beiden Eckjahre und zeigen, wie die Einwohnerdichte mit der PKW-Quote und den sechs Antriebsanteilen zusammenhängt.
+Unter Windows aktivierst du die Umgebung mit `.venv\Scripts\Activate.ps1` statt mit `source`.
 
-Der Bericht in `outputs/analysebericht.md` fasst die Kennzahlen zusammen, verlinkt die Streudiagramme und nennt die Grenzen der Auswertung.
+## Was dabei entsteht
 
-## Definitionen
+Alle Grafiken landen im Ordner `outputs/figures/`. Das sind zwei Zeitreihen, acht Karten für 2024 und zwei Streudiagramme.
 
-**Einwohnerdichte** ist die Einwohnerzahl geteilt durch die Gemeindefläche in km² (`AREA_HA / 100`). **PKW-Quote** ist die Anzahl Personenwagen je 1’000 Einwohner. Die Antriebskarten zeigen diese Quote jeweils für eine Antriebsart. Normal-Hybrid und Plug-in-Hybrid fassen je Benzin- und Dieselvarianten zusammen. «Sonstige» enthält Gas (mono- und bivalent), Wasserstoff und «Anderer».
+Die eine Zeitreihe zeigt, wie sich die Antriebsarten im ganzen Kanton entwickelt haben, die andere zeigt dasselbe für die Stadt Zürich. Die Karten zeigen für jede Gemeinde die Einwohnerdichte und wie viele Autos es pro 1'000 Einwohner gibt, einmal insgesamt und einmal pro Antriebsart. Die Streudiagramme vergleichen 2010 mit 2024. Sie zeigen, wie die Einwohnerdichte mit der Zahl der Autos und mit den Anteilen der Antriebsarten zusammenhängt.
 
-## Geodaten und Zeitbezug
+Ausserdem schreibt die Pipeline den Bericht `outputs/analysebericht.md`. Er fasst die wichtigsten Zahlen zusammen und erklärt, wo die Auswertung an Grenzen stösst.
 
-Die Karten verwenden `data/geo/zuerich_gemeinden_2026.gpkg` mit den 160 politischen Gemeinden aus [swissBOUNDARIES3D, Ausgabe 2026-01](https://www.swisstopo.admin.ch/de/landschaftsmodell-swissboundaries3d), © swisstopo. Quelle ist die amtliche Ebene `tlm_hoheitsgebiet`, gefiltert auf `kantonsnummer = 1` und `objektart = Gemeindegebiet`; enthalten sind BFS-Nummer, Name und Originalgeometrie in EPSG:2056. Der [Originaldownload](https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2026-01/swissboundaries3d_2026-01_2056_5728.gpkg.zip) liegt wegen seiner Grösse nicht im Repository. Zürichsee und Greifensee sind keine politischen Gemeinden und werden nicht mitgezählt.
+## Begriffe
 
-Die Fahrzeug- und Einwohnerzahlen reichen bis 2024. `src/clean.py` ordnet historische Gemeinden dem Stand 01.01.2026 zu. Deshalb verwenden die 2024er Karten 2026er Grenzen. Die Fläche aus `Geographische_Kennzahlen.csv` wird über alle Analysejahre konstant gehalten; historische Dichtewerte sind somit auf diesen Gemeindestand bezogen.
+Die **Einwohnerdichte** gibt an, wie viele Menschen auf einem Quadratkilometer wohnen. Wir teilen dafür die Einwohnerzahl durch die Fläche der Gemeinde.
+
+Die **PKW-Quote** gibt an, wie viele Personenwagen es pro 1'000 Einwohner gibt.
+
+Benzin- und Dieselhybride zählen wir zusammen und trennen nur zwischen Normal-Hybrid und Plug-in-Hybrid. Gas, Wasserstoff und andere Antriebe fassen wir unter «Sonstige» zusammen.
+
+## Woher die Gemeindegrenzen kommen
+
+Die Grenzen stammen aus [swissBOUNDARIES3D](https://www.swisstopo.admin.ch/de/landschaftsmodell-swissboundaries3d) von swisstopo und haben den Stand vom Januar 2026. Aus der Ebene `tlm_hoheitsgebiet` haben wir nur die Gemeindegebiete im Kanton Zürich behalten (`kantonsnummer = 1`). Sie liegen in `data/geo/zuerich_gemeinden_2026.gpkg`. Für jede Gemeinde stehen dort die BFS-Nummer, der Name und die Grenze im Koordinatensystem EPSG 2056.
+
+Den [ganzen Download](https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/swissboundaries3d_2026-01/swissboundaries3d_2026-01_2056_5728.gpkg.zip) haben wir nicht ins Repository gelegt, weil er zu gross ist. Zürichsee und Greifensee gehören zu keiner Gemeinde und zählen deshalb nicht mit.
+
+## Gemeindestand
+
+Seit 2010 haben sich einige Gemeinden zusammengeschlossen. Damit wir alle Jahre vergleichen können, rechnet `src/clean.py` alle Werte auf den Gemeindestand vom 1. Januar 2026 um. Deshalb zeigen auch die Karten für 2024 die Grenzen von 2026.
+
+Die Fläche einer Gemeinde bleibt über alle Jahre gleich. Die Dichte früherer Jahre bezieht sich also immer auf die heutigen Grenzen.

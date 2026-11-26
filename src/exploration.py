@@ -146,6 +146,11 @@ def _karten(gemeinden_2024: pd.DataFrame, ziel: Path, grenzen_pfad: Path) -> Non
         )
 
 
+def _zahl(wert) -> str:
+    """Schreibt eine Zahl mit Schweizer Tausendertrennzeichen, z. B. 1'620'020."""
+    return f"{int(wert):,}".replace(",", "'")
+
+
 def _bericht(gemeinden: pd.DataFrame, antriebe: pd.DataFrame, ziel: Path) -> None:
     """Schreibe die wichtigsten Kennzahlen und Links zu den Grafiken."""
     aktuell = gemeinden[gemeinden["Jahr"] == ANALYSE_ENDJAHR]
@@ -154,45 +159,45 @@ def _bericht(gemeinden: pd.DataFrame, antriebe: pd.DataFrame, ziel: Path) -> Non
     stadt = gemeinden[gemeinden["gemeinde_nr"] == 261].set_index("Jahr")
     antrieb_2024 = antriebe[antriebe["Jahr"] == ANALYSE_ENDJAHR]
     zeilen = "\n".join(
-        f"| {row.Antriebsart} | {int(row.Fahrzeuge):,} | {row.Fahrzeuge / gesamt:.1%} |"
+        f"| {row.Antriebsart} | {_zahl(row.Fahrzeuge)} | {row.Fahrzeuge / gesamt * 100:.1f} % |"
         for row in antrieb_2024.itertuples(index=False)
     )
-    text = f"""# Explorative Datenanalyse: Kanton Zürich
+    text = f"""# Analysebericht Kanton Zürich
 
-## Daten und Definitionen
+## Daten
 
-Die Analyse betrachtet Personenwagen in den 160 Zürcher Gemeinden von {ANALYSE_STARTJAHR} bis {ANALYSE_ENDJAHR}. Grundlage sind die drei CSV-Dateien unter `data/raw/` und die Gemeindegrenzen aus [swissBOUNDARIES3D, Stand 01.01.2026]({GRENZEN_QUELLE}) (© swisstopo).
+Wir betrachten die Personenwagen in den 160 Gemeinden des Kantons Zürich von {ANALYSE_STARTJAHR} bis {ANALYSE_ENDJAHR}. Die Zahlen stammen aus den drei CSV-Dateien in `data/raw/`. Die Gemeindegrenzen kommen von [swisstopo]({GRENZEN_QUELLE}) und haben den Stand vom 1. Januar 2026.
 
-- Die Einwohnerdichte entspricht Einwohnern je km².
-- Die PKW-Quote gibt die Zahl der Personenwagen je 1'000 Einwohner an. Die PKW- und Antriebskarten zeigen diese Quote mit jeweils eigener Farbskala.
-- Normal-Hybrid und Plug-in-Hybrid bündeln je Benzin- und Dieselvarianten. Sonstige umfasst Gas, Wasserstoff und «Anderer».
+Die Einwohnerdichte gibt an, wie viele Menschen auf einem Quadratkilometer wohnen. Die PKW-Quote gibt an, wie viele Personenwagen es pro 1'000 Einwohner gibt. Jede Karte hat ihre eigene Farbskala, die Farben verschiedener Karten lassen sich also nicht direkt vergleichen.
+
+Benzin- und Dieselhybride zählen wir zusammen und trennen nur zwischen Normal-Hybrid und Plug-in-Hybrid. Gas, Wasserstoff und andere Antriebe fassen wir unter «Sonstige» zusammen.
 
 ## Kanton Zürich {ANALYSE_ENDJAHR}
 
-{einwohner:,} Einwohner und {gesamt:,} Personenwagen ergeben {gesamt / einwohner * 1000:.1f} PKW je 1'000 Einwohner.
+Im Kanton wohnen {_zahl(einwohner)} Menschen und es gibt {_zahl(gesamt)} Personenwagen. Das sind {gesamt / einwohner * 1000:.0f} Autos pro 1'000 Einwohner.
 
-Das [Streudiagramm zur PKW-Quote](figures/einwohnerdichte_und_pkw_{ANALYSE_STARTJAHR}_{ANALYSE_ENDJAHR}.png) vergleicht beide Jahre auf gleichen Achsen. Jeder Punkt steht für eine Gemeinde.
+Im [Streudiagramm zur PKW-Quote](figures/einwohnerdichte_und_pkw_{ANALYSE_STARTJAHR}_{ANALYSE_ENDJAHR}.png) steht jeder Punkt für eine Gemeinde. Es vergleicht {ANALYSE_STARTJAHR} und {ANALYSE_ENDJAHR} auf denselben Achsen.
 
-Die [Grafik zu den Antriebsanteilen](figures/einwohnerdichte_und_antriebsanteile_{ANALYSE_STARTJAHR}_{ANALYSE_ENDJAHR}.png) zeigt pro Antrieb den prozentualen Anteil am PKW-Bestand der Gemeinde. Die Trendlinien sind lineare Regressionen auf log10(Einwohnerdichte). Spearman ρ beschreibt den Zusammenhang zwischen den Rangfolgen der Gemeinden.
+Die [Grafik zu den Antriebsanteilen](figures/einwohnerdichte_und_antriebsanteile_{ANALYSE_STARTJAHR}_{ANALYSE_ENDJAHR}.png) zeigt für jede Antriebsart, wie gross ihr Anteil an den Autos einer Gemeinde ist. Die Linien zeigen den Trend. Sie sind mit einer linearen Regression auf die logarithmierte Dichte berechnet. Der Spearman-Wert ρ zeigt, wie gut die Reihenfolge der Gemeinden nach Dichte mit ihrer Reihenfolge nach Anteil übereinstimmt.
 
-| Antriebsart | PKW | Anteil am PKW-Bestand |
-| --- | ---: | ---: |
+| Antriebsart | Personenwagen | Anteil |
+| --- | --- | --- |
 {zeilen}
 
 ## Stadt Zürich
 
-Die Stadt Zürich zählte {int(stadt.loc[ANALYSE_STARTJAHR, 'pkw']):,} Personenwagen im Jahr {ANALYSE_STARTJAHR} und {int(stadt.loc[ANALYSE_ENDJAHR, 'pkw']):,} im Jahr {ANALYSE_ENDJAHR}. Die [Stadtgrafik](figures/stadt_zuerich_antriebsarten_zeitreihe.png) zeigt die absoluten Bestände je Antriebsart.
+In der Stadt Zürich gab es {_zahl(stadt.loc[ANALYSE_STARTJAHR, 'pkw'])} Personenwagen im Jahr {ANALYSE_STARTJAHR} und {_zahl(stadt.loc[ANALYSE_ENDJAHR, 'pkw'])} im Jahr {ANALYSE_ENDJAHR}. Die [Stadtgrafik](figures/stadt_zuerich_antriebsarten_zeitreihe.png) zeigt, wie sich die einzelnen Antriebsarten entwickelt haben.
 
 ## Grenzen der Auswertung
 
-- **Gemeindestand:** Die historischen Werte wurden dem Gemeindestand 2026 zugeordnet. Die Gemeindefläche bleibt für alle Jahre konstant.
-- **Gesamtfläche:** Die Einwohnerdichte bezieht sich auf die ganze Gemeindefläche, inklusive Wald, Landwirtschaft und kleinerer Seen. Gemeinden mit viel Wald wirken dadurch dünner besiedelt. Zürichsee und Greifensee sind eigene Gebiete und zählen nicht mit.
-- **Halterwohnort:** Fahrzeuge sind am Wohn- oder Firmensitz des Halters eingelöst, nicht dort, wo sie fahren. Miet-, Leasing- und Firmenwagen erklären die hohen Werte in Kloten, Opfikon und Rümlang (Flughafen).
-- **Frühe Jahre:** 2010 hatten 124 von 160 Gemeinden kein Elektroauto, Plug-in-Hybride gibt es erst ab 2012. Zusammenhänge mit Elektro und Plug-in-Hybrid sind vor etwa 2015 kaum aussagekräftig.
-- **Stichtage:** Der Fahrzeugbestand gilt per 30. September, die Einwohnerzahl per 31. Dezember. Das betrifft die PKW-Quote, nicht die Antriebsanteile.
-- **Kanton und Gemeinden:** Zürich und Winterthur haben 24 % der Personenwagen im Kanton und prägen die kantonalen Anteile stark. Vergleiche zwischen Gemeinden zählen dagegen jede Gemeinde gleich.
-- **Nur Kanton Zürich:** Die Ergebnisse lassen sich nicht direkt auf die ganze Schweiz übertragen.
-- **Bestand statt Nutzung:** Fahrzeugbestände messen weder Fahrleistung noch Emissionen.
+- Alle früheren Werte sind auf den Gemeindestand 2026 umgerechnet. Die Fläche einer Gemeinde bleibt über alle Jahre gleich.
+- Die Dichte bezieht sich auf die ganze Gemeindefläche, also auch auf Wald, Felder und kleinere Seen. Gemeinden mit viel Wald wirken dadurch weniger dicht, als sie im Siedlungsgebiet sind. Zürichsee und Greifensee gehören zu keiner Gemeinde und zählen nicht mit.
+- Ein Auto ist dort eingelöst, wo der Halter wohnt oder seine Firma ihren Sitz hat, und nicht dort, wo es fährt. Miet-, Leasing- und Firmenwagen erklären die hohen Werte in Kloten, Opfikon und Rümlang rund um den Flughafen.
+- In den ersten Jahren gab es kaum Elektroautos. 2010 hatten 124 von 160 Gemeinden kein einziges, Plug-in-Hybride gibt es erst ab 2012. Vor etwa 2015 sagen Zusammenhänge mit diesen beiden Antrieben deshalb wenig aus.
+- Die Fahrzeugzahlen gelten für den 30. September, die Einwohnerzahlen für den 31. Dezember. Das betrifft nur die PKW-Quote und nicht die Anteile der Antriebsarten.
+- Zürich und Winterthur haben zusammen 24 % aller Personenwagen im Kanton. Die Anteile für den ganzen Kanton hängen deshalb stark von diesen beiden Städten ab. Beim Vergleich der Gemeinden zählt dagegen jede Gemeinde gleich viel.
+- Wir haben nur den Kanton Zürich untersucht. Für die ganze Schweiz können die Ergebnisse anders aussehen.
+- Wir zählen, wie viele Autos es gibt, und nicht, wie viel sie fahren. Über Fahrleistung und Emissionen sagt die Auswertung nichts.
 """
     ziel.write_text(text, encoding="utf-8")
 
