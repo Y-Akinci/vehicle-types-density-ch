@@ -1,9 +1,12 @@
-"""Gemeindewerte für die Zürcher Fahrzeuganalyse berechnen."""
-
 import pandas as pd
 
 from .clean import ANALYSE_ENDJAHR, ANALYSE_STARTJAHR
 
+
+KANTON_ZUERICH = 1
+ANZAHL_GEMEINDEN = 160
+JAHRE = [str(jahr) for jahr in range(ANALYSE_STARTJAHR, ANALYSE_ENDJAHR + 1)]
+DICHTEKLASSEN = ["tief", "mittel-tief", "mittel-hoch", "hoch"]
 
 ANTRIEBSARTEN = {
     "Benzin": "Benzin",
@@ -27,67 +30,54 @@ ANTRIEBS_SPALTEN = {
 }
 
 
-def _vorbereiten(verbunden: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Liefere die Personenwagen und die Gemeindedaten des Kantons Zürich."""
-    zuerich = verbunden[verbunden["KTNR"] == 1]
-    if zuerich["gemeinde_nr"].nunique() != 160:
-        raise ValueError("Erwartet werden 160 politische Gemeinden im Kanton Zürich.")
-
-    pkw = zuerich[zuerich["Fahrzeuggruppe"] == "Personenwagen"].copy()
-    unbekannt = set(pkw["Treibstoff"]) - set(ANTRIEBSARTEN) - {"Ohne Motor"}
-    if unbekannt:
-        raise ValueError(f"Unbekannte Antriebsarten: {sorted(unbekannt)}")
-    pkw["Antriebsart"] = pkw["Treibstoff"].map(ANTRIEBSARTEN)
-
-    einwohner_spalten = [f"einwohner_{jahr}" for jahr in range(ANALYSE_STARTJAHR, ANALYSE_ENDJAHR + 1)]
-    stamm = (
-        zuerich[["gemeinde_nr", "GDENAME", "AREA_HA", *einwohner_spalten]]
-        .drop_duplicates("gemeinde_nr")
-        .set_index("gemeinde_nr")
-    )
-    zahlen = stamm[["AREA_HA", *einwohner_spalten]]
-    if zahlen.isna().any().any() or (zahlen <= 0).any().any():
-        raise ValueError("Gemeindeflächen und Einwohnerzahlen müssen vollständig und positiv sein.")
-    return pkw, stamm
-
-
-def _jahr_berechnen(pkw: pd.DataFrame, stamm: pd.DataFrame, jahr: int) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Zähle PKW je Antrieb und berechne Dichte und Quoten pro Gemeinde."""
-    einwohner = stamm[f"einwohner_{jahr}"]
-    flaeche_km2 = stamm["AREA_HA"] / 100
-    antriebe = (
-        pkw.groupby(["gemeinde_nr", "Antriebsart"])[str(jahr)]
-        .sum()
-        .unstack(fill_value=0)
-        .reindex(index=stamm.index, columns=ANTRIEBS_SPALTEN, fill_value=0)
-    )
-    # Jede Zeile der Antriebstabelle gehört zur gleichen Gemeinde wie im Stamm.
-    werte = pd.DataFrame(index=stamm.index)
-    werte["Gemeinde"] = stamm["GDENAME"]
-    werte["Jahr"] = jahr
-    werte["flaeche_km2"] = flaeche_km2
-    werte["einwohner"] = einwohner
-    werte["einwohner_je_km2"] = einwohner / flaeche_km2
-    werte["pkw"] = antriebe.sum(axis=1)
-    werte["pkw_je_1000_einwohner"] = werte["pkw"] / einwohner * 1000
-    for name, spalte in ANTRIEBS_SPALTEN.items():
-        werte[spalte] = antriebe[name]
-        werte[f"{spalte}_je_1000_einwohner"] = werte[spalte] / einwohner * 1000
-
-    kanton = antriebe.sum().rename_axis("Antriebsart").reset_index(name="Fahrzeuge")
-    kanton.insert(0, "Jahr", jahr)
-    return werte.reset_index(), kanton
-
-
 def berechne_kennzahlen(verbunden: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Erzeuge Gemeindekennzahlen und kantonale Antriebssummen für 2010–2024."""
-    pkw, stamm = _vorbereiten(verbunden)
-    gemeinde_jahre = []
-    antrieb_jahre = []
-    for jahr in range(ANALYSE_STARTJAHR, ANALYSE_ENDJAHR + 1):
-        if (pkw[str(jahr)] < 0).any() or (pkw.loc[pkw["Treibstoff"] == "Ohne Motor", str(jahr)] != 0).any():
-            raise ValueError(f"Ungültige PKW-Bestände im Jahr {jahr}.")
-        gemeinden, antriebe = _jahr_berechnen(pkw, stamm, jahr)
-        gemeinde_jahre.append(gemeinden)
-        antrieb_jahre.append(antriebe)
-    return pd.concat(gemeinde_jahre, ignore_index=True), pd.concat(antrieb_jahre, ignore_index=True)
+    """Kennzahlen pro Gemeinde und Jahr sowie Summen pro Antriebsart für den Kanton Zürich."""
+    zuerich = verbunden[verbunden["KTNR"] == KANTON_ZUERICH]
+    if zuerich["gemeinde_nr"].nunique() != ANZAHL_GEMEINDEN:
+        raise ValueError(f"Erwartet werden {ANZAHL_GEMEINDEN} Gemeinden im Kanton Zürich.")
+    pkw = zuerich[zuerich["Fahrzeuggruppe"] == "Personenwagen"]
+
+    # Fahrzeuge vom Wide- ins Long-Format, dann pro Gemeinde, Jahr und Antriebsart summieren
+    fahrzeuge = pkw.melt(id_vars=["gemeinde_nr", "Treibstoff"], value_vars=JAHRE,
+                         var_name="Jahr", value_name="Fahrzeuge")
+    fahrzeuge["Jahr"] = fahrzeuge["Jahr"].astype(int)
+    fahrzeuge["Antriebsart"] = fahrzeuge["Treibstoff"].map(ANTRIEBSARTEN)
+    antriebe_breit = (
+        fahrzeuge.pivot_table(index=["gemeinde_nr", "Jahr"], columns="Antriebsart",
+                              values="Fahrzeuge", aggfunc="sum", fill_value=0)
+        [list(ANTRIEBS_SPALTEN)]
+        .rename(columns=ANTRIEBS_SPALTEN)
+        .reset_index()
+    )
+
+    # Einwohner vom Wide- ins Long-Format
+    stamm = zuerich.drop_duplicates("gemeinde_nr")
+    einwohner = stamm.melt(id_vars=["gemeinde_nr", "GDENAME", "AREA_HA"],
+                           value_vars=[f"einwohner_{jahr}" for jahr in JAHRE],
+                           var_name="Jahr", value_name="einwohner")
+    einwohner["Jahr"] = einwohner["Jahr"].str.removeprefix("einwohner_").astype(int)
+
+    gemeinden = einwohner.merge(antriebe_breit, on=["gemeinde_nr", "Jahr"], validate="one_to_one")
+    gemeinden = gemeinden.rename(columns={"GDENAME": "Gemeinde"})
+    gemeinden["flaeche_km2"] = gemeinden["AREA_HA"] / 100
+    gemeinden["einwohner_je_km2"] = gemeinden["einwohner"] / gemeinden["flaeche_km2"]
+    gemeinden["pkw"] = gemeinden[list(ANTRIEBS_SPALTEN.values())].sum(axis=1)
+    gemeinden["pkw_je_1000_einwohner"] = gemeinden["pkw"] / gemeinden["einwohner"] * 1000
+    for spalte in ANTRIEBS_SPALTEN.values():
+        gemeinden[f"{spalte}_je_1000_einwohner"] = gemeinden[spalte] / gemeinden["einwohner"] * 1000
+        gemeinden[f"{spalte}_anteil"] = gemeinden[spalte] / gemeinden["pkw"] * 100
+
+    # Feste Dichteklassen nach der Dichte im letzten Jahr, je ein Viertel der Gemeinden
+    dichte = gemeinden[gemeinden["Jahr"] == ANALYSE_ENDJAHR].set_index("gemeinde_nr")["einwohner_je_km2"]
+    klassen = pd.qcut(dichte, q=4, labels=DICHTEKLASSEN)
+    gemeinden["dichteklasse"] = gemeinden["gemeinde_nr"].map(klassen)
+
+    antriebe = fahrzeuge.groupby(["Jahr", "Antriebsart"], as_index=False)["Fahrzeuge"].sum()
+    return gemeinden, antriebe
+
+
+def ausreisser_finden(werte: pd.Series) -> pd.Series:
+    """Gibt die Werte zurück, die nach der Boxplot-Regel (1.5 x IQR) auffallen."""
+    q1, q3 = werte.quantile([0.25, 0.75])
+    grenze = 1.5 * (q3 - q1)
+    return werte[(werte < q1 - grenze) | (werte > q3 + grenze)]
