@@ -31,4 +31,11 @@ Die Stadt Zürich zählte 137,225 Personenwagen im Jahr 2010 und 138,873 im Jahr
 
 ## Grenzen der Auswertung
 
-Die historischen Werte wurden dem Gemeindestand 2026 zugeordnet. Die Gemeindefläche bleibt für alle Jahre konstant. Fahrzeugbestände messen weder Fahrleistung noch Emissionen.
+- **Gemeindestand:** Die historischen Werte wurden dem Gemeindestand 2026 zugeordnet. Die Gemeindefläche bleibt für alle Jahre konstant.
+- **Gesamtfläche:** Die Einwohnerdichte bezieht sich auf die ganze Gemeindefläche, inklusive Wald, Landwirtschaft und kleinerer Seen. Gemeinden mit viel Wald wirken dadurch dünner besiedelt. Zürichsee und Greifensee sind eigene Gebiete und zählen nicht mit.
+- **Halterwohnort:** Fahrzeuge sind am Wohn- oder Firmensitz des Halters eingelöst, nicht dort, wo sie fahren. Miet-, Leasing- und Firmenwagen erklären die hohen Werte in Kloten, Opfikon und Rümlang (Flughafen).
+- **Frühe Jahre:** 2010 hatten 124 von 160 Gemeinden kein Elektroauto, Plug-in-Hybride gibt es erst ab 2012. Zusammenhänge mit Elektro und Plug-in-Hybrid sind vor etwa 2015 kaum aussagekräftig.
+- **Stichtage:** Der Fahrzeugbestand gilt per 30. September, die Einwohnerzahl per 31. Dezember. Das betrifft die PKW-Quote, nicht die Antriebsanteile.
+- **Kanton und Gemeinden:** Zürich und Winterthur haben 24 % der Personenwagen im Kanton und prägen die kantonalen Anteile stark. Vergleiche zwischen Gemeinden zählen dagegen jede Gemeinde gleich.
+- **Nur Kanton Zürich:** Die Ergebnisse lassen sich nicht direkt auf die ganze Schweiz übertragen.
+- **Bestand statt Nutzung:** Fahrzeugbestände messen weder Fahrleistung noch Emissionen.

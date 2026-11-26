@@ -15,7 +15,7 @@ python -m src.pipeline
 
 Die Pipeline speichert zwei Zeitreihen, acht Karten für 2024 und zwei Streudiagramme in `outputs/figures/`. Die Zeitreihen zeigen die kantonalen Antriebsanteile und die Bestände je Antriebsart in der Stadt Zürich von 2010 bis 2024. Die Streudiagramme vergleichen die beiden Eckjahre und zeigen, wie die Einwohnerdichte mit der PKW-Quote und den sechs Antriebsanteilen zusammenhängt.
 
-Der Bericht in `outputs/eda_bericht.md` fasst die Kennzahlen zusammen und verlinkt die Streudiagramme.
+Der Bericht in `outputs/analysebericht.md` fasst die Kennzahlen zusammen, verlinkt die Streudiagramme und nennt die Grenzen der Auswertung.
 
 ## Definitionen
 
