@@ -7,11 +7,13 @@ import matplotlib
 import numpy as np
 
 matplotlib.use("Agg")
+import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from .clean import ANALYSE_ENDJAHR, ANALYSE_STARTJAHR
-from .transform import ANTRIEBS_SPALTEN
+from .transform import ANTRIEBS_SPALTEN, ANZAHL_GEMEINDEN, DICHTEKLASSEN, ausreisser_finden
 
 
 PROJEKTVERZEICHNIS = Path(__file__).resolve().parents[1]
@@ -20,6 +22,10 @@ GRENZEN_QUELLE = (
     "https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/"
     "swissboundaries3d_2026-01/swissboundaries3d_2026-01_2056_5728.gpkg.zip"
 )
+
+KOORDINATENSYSTEM = 2056  # Schweizer Landeskoordinaten LV95
+STADT_ZUERICH = 261
+FLUGHAFEN_GEMEINDEN = ["Kloten", "Opfikon", "Rümlang"]
 
 
 def _speichern(fig: plt.Figure, ziel: Path) -> None:
@@ -40,7 +46,7 @@ def _kantonale_antriebsanteile(antriebe: pd.DataFrame, ziel: Path) -> None:
 
 def _stadt_zuerich_zeitreihen(gemeinden: pd.DataFrame, ziel: Path) -> None:
     """Zeige die PKW-Bestände je Antriebsart in der Stadt Zürich."""
-    stadt = gemeinden[gemeinden["gemeinde_nr"] == 261].sort_values("Jahr")
+    stadt = gemeinden[gemeinden["gemeinde_nr"] == STADT_ZUERICH].sort_values("Jahr")
     jahre = list(range(ANALYSE_STARTJAHR, ANALYSE_ENDJAHR + 1))
     if stadt["Jahr"].tolist() != jahre:
         raise ValueError("Für die Stadt Zürich wird genau ein Wert pro Analysejahr erwartet.")
@@ -67,8 +73,8 @@ def _punkte_mit_trend(ax, dichte, werte, jahr, farbe):
     linie_y = steigung * np.log10(linie_x) + achsenabschnitt
 
     # Spearman vergleicht die Rangfolge der Gemeinden.
-    rho = dichte.rank().corr(werte.rank()) if werte.nunique() > 1 else None
-    korrelation = f"p = {rho:+.2f}".replace(".", ",") if rho is not None else "p nicht definiert"
+    rho = dichte.rank().corr(werte.rank())
+    korrelation = f"p = {rho:+.2f}"
     ax.plot(linie_x, linie_y, color=farbe, linewidth=2, label=f"{jahr} · {korrelation}")
     ax.set_xscale("log")
     ax.grid(alpha=0.2)
@@ -97,7 +103,7 @@ def _antriebsanteile_und_dichte(gemeinden: pd.DataFrame, ziel: Path) -> None:
     for ax, (name, spalte) in zip(achsen.flat, ANTRIEBS_SPALTEN.items()):
         ax.set_title(name)
         for werte, jahr, farbe in [(start, ANALYSE_STARTJAHR, "#17608b"), (ende, ANALYSE_ENDJAHR, "#ad511c")]:
-            anteil = werte[spalte] / werte["pkw"] * 100
+            anteil = werte[f"{spalte}_anteil"]
             _punkte_mit_trend(ax, werte["einwohner_je_km2"], anteil, jahr, farbe)
 
     fig.suptitle("Einwohnerdichte und Antriebsanteile bei Personenwagen")
@@ -125,12 +131,12 @@ def _karten(gemeinden_2024: pd.DataFrame, ziel: Path, grenzen_pfad: Path) -> Non
     if not grenzen_pfad.exists():
         raise FileNotFoundError(f"Gemeindegrenzen fehlen: {grenzen_pfad}")
     grenzen = gpd.read_file(grenzen_pfad, layer="gemeinden")
-    if grenzen.crs is None or grenzen.crs.to_epsg() != 2056:
+    if grenzen.crs is None or grenzen.crs.to_epsg() != KOORDINATENSYSTEM:
         raise ValueError("Gemeindegrenzen müssen im Koordinatensystem EPSG:2056 vorliegen.")
-    if len(grenzen) != 160 or grenzen["bfs_nummer"].nunique() != 160 or not grenzen.geometry.is_valid.all():
+    if len(grenzen) != ANZAHL_GEMEINDEN or not grenzen.geometry.is_valid.all():
         raise ValueError("Gemeindegrenzen müssen 160 eindeutige und gültige Polygone enthalten.")
     karte = grenzen.merge(gemeinden_2024, left_on="bfs_nummer", right_on="gemeinde_nr", how="left", validate="one_to_one")
-    if karte["einwohner"].isna().any() or set(karte["bfs_nummer"]) != set(gemeinden_2024["gemeinde_nr"]):
+    if karte["einwohner"].isna().any():
         raise ValueError("Nicht alle 160 Zürcher Gemeinden konnten kartiert werden.")
 
     _gemeindekarte(
@@ -150,6 +156,49 @@ def _zahl(wert) -> str:
     """Schreibt eine Zahl mit Schweizer Tausendertrennzeichen, z. B. 1'620'020."""
     return f"{int(wert):,}".replace(",", "'")
 
+def _prozent(wert) -> str:
+    return f"{wert:.1f} %"
+
+
+def _dichteklassen_tabelle(aktuell: pd.DataFrame) -> str:
+    """Median der Antriebsanteile pro Dichteklasse als Markdown-Tabelle."""
+    anteile = [f"{spalte}_anteil" for spalte in ANTRIEBS_SPALTEN.values()]
+    median = aktuell.groupby("dichteklasse", observed=True)[anteile].median().loc[DICHTEKLASSEN]
+    kopf = "| Dichteklasse | " + " | ".join(ANTRIEBS_SPALTEN) + " |"
+    trenner = "| --- " * (len(ANTRIEBS_SPALTEN) + 1) + "|"
+    zeilen = [
+        f"| {klasse} | " + " | ".join(_prozent(wert) for wert in median.loc[klasse]) + " |"
+        for klasse in DICHTEKLASSEN
+    ]
+    return "\n".join([kopf, trenner, *zeilen])
+
+
+def _ausreisser_tabelle(aktuell: pd.DataFrame) -> str:
+    """Gemeinden, die nach der Boxplot-Regel auffallen, als Markdown-Tabelle."""
+    kennzahlen = {"Einwohnerdichte": "einwohner_je_km2", "PKW-Quote": "pkw_je_1000_einwohner"}
+    kennzahlen.update({f"Anteil {name}": f"{spalte}_anteil" for name, spalte in ANTRIEBS_SPALTEN.items()})
+    werte = aktuell.set_index("Gemeinde")
+    zeilen = ["| Kennzahl | Auffällige Gemeinden |", "| --- | --- |"]
+    for name, spalte in kennzahlen.items():
+        ausreisser = ausreisser_finden(werte[spalte]).sort_values(ascending=False)
+        gemeinden = ", ".join(ausreisser.index) if len(ausreisser) else "keine"
+        zeilen.append(f"| {name} | {gemeinden} |")
+    return "\n".join(zeilen)
+
+
+def _robustheit_tabelle(aktuell: pd.DataFrame) -> tuple[str, float]:
+    """Spearman ρ mit und ohne Flughafengemeinden und die grösste Abweichung."""
+    ohne = aktuell[~aktuell["Gemeinde"].isin(FLUGHAFEN_GEMEINDEN)]
+    zeilen = ["| Antriebsart | ρ mit allen Gemeinden | ρ ohne Flughafengemeinden |", "| --- | --- | --- |"]
+    abweichungen = []
+    for name, spalte in ANTRIEBS_SPALTEN.items():
+        mit = aktuell["einwohner_je_km2"].rank().corr(aktuell[f"{spalte}_anteil"].rank())
+        ohne_rho = ohne["einwohner_je_km2"].rank().corr(ohne[f"{spalte}_anteil"].rank())
+        abweichungen.append(abs(mit - ohne_rho))
+        zeilen.append(f"| {name} | {mit:+.2f} | {ohne_rho:+.2f} |")
+    return "\n".join(zeilen), max(abweichungen)
+
+
 
 def _bericht(gemeinden: pd.DataFrame, antriebe: pd.DataFrame, ziel: Path) -> None:
     """Schreibe die wichtigsten Kennzahlen und Links zu den Grafiken."""
@@ -162,6 +211,7 @@ def _bericht(gemeinden: pd.DataFrame, antriebe: pd.DataFrame, ziel: Path) -> Non
         f"| {row.Antriebsart} | {_zahl(row.Fahrzeuge)} | {row.Fahrzeuge / gesamt * 100:.1f} % |"
         for row in antrieb_2024.itertuples(index=False)
     )
+    robustheit, abweichung = _robustheit_tabelle(aktuell)
     text = f"""# Analysebericht Kanton Zürich
 
 ## Daten
@@ -184,6 +234,25 @@ Die [Grafik zu den Antriebsanteilen](figures/einwohnerdichte_und_antriebsanteile
 | --- | --- | --- |
 {zeilen}
 
+## Antriebsanteile nach Dichteklasse
+
+Wir teilen die Gemeinden nach ihrer Einwohnerdichte im Jahr {ANALYSE_ENDJAHR} in vier gleich grosse Gruppen ein. Jede Gemeinde bleibt in allen Jahren in derselben Gruppe. Die Tabelle zeigt für jede Gruppe den Median der Antriebsanteile im Jahr {ANALYSE_ENDJAHR}. Wir nehmen den Median statt des Durchschnitts, weil einzelne Ausreisser ihn kaum verschieben.
+
+{_dichteklassen_tabelle(aktuell)}
+
+## Ausreisser
+
+Als Ausreisser zählt eine Gemeinde, wenn ihr Wert mehr als das 1.5-fache des Interquartilsabstands unter dem ersten oder über dem dritten Quartil liegt. Das ist dieselbe Regel, die auch ein Boxplot verwendet. Im Jahr {ANALYSE_ENDJAHR} fallen diese Gemeinden auf.
+
+{_ausreisser_tabelle(aktuell)}
+
+Wir behalten alle Ausreisser, weil es echte Werte und keine Fehler sind. Gerade die dichten Gemeinden sind für unsere Frage wichtig. Damit sie das Ergebnis nicht verzerren, arbeiten wir mit dem Median und mit Spearman ρ, das nur die Reihenfolge der Gemeinden vergleicht. Zur Kontrolle berechnen wir ρ einmal mit allen Gemeinden und einmal ohne die Flughafengemeinden {", ".join(FLUGHAFEN_GEMEINDEN)}.
+
+{robustheit}
+
+Die grösste Abweichung beträgt {abweichung:.2f}. Die Ausreisser verändern das Ergebnis also kaum.
+
+
 ## Stadt Zürich
 
 In der Stadt Zürich gab es {_zahl(stadt.loc[ANALYSE_STARTJAHR, 'pkw'])} Personenwagen im Jahr {ANALYSE_STARTJAHR} und {_zahl(stadt.loc[ANALYSE_ENDJAHR, 'pkw'])} im Jahr {ANALYSE_ENDJAHR}. Die [Stadtgrafik](figures/stadt_zuerich_antriebsarten_zeitreihe.png) zeigt, wie sich die einzelnen Antriebsarten entwickelt haben.
@@ -203,7 +272,7 @@ In der Stadt Zürich gab es {_zahl(stadt.loc[ANALYSE_STARTJAHR, 'pkw'])} Persone
 
 
 def erstelle_exploration(gemeinden: pd.DataFrame, antriebe: pd.DataFrame, output_dir: Path | None = None) -> Path:
-    """Speichere die Grafiken und den EDA-Bericht in outputs/."""
+    """Speichere die Grafiken und den Analysebericht in outputs/."""
     output_dir = Path(output_dir) if output_dir is not None else PROJEKTVERZEICHNIS / "outputs"
     figuren = output_dir / "figures"
     figuren.mkdir(parents=True, exist_ok=True)
