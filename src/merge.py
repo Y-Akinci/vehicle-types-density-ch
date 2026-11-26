@@ -1,4 +1,7 @@
 def merge_dfs(antrieb, einwohner, geo):
+    # Nur die Geodaten-Spalten, die wir später brauchen
+    geo = geo[["gemeinde_nr", "GDENAME", "AREA_HA", "KTNR", "KTNAME"]]
+
     verbunden = antrieb.merge(
         einwohner,
         on="gemeinde_nr",
@@ -19,4 +22,4 @@ def merge_dfs(antrieb, einwohner, geo):
     if (verbunden["_geo_merge"] == "left_only").any():
         raise ValueError("Für einige Antriebszeilen fehlen Geografiedaten.")
 
-    return verbunden
+    return verbunden.drop(columns=["_einwohner_merge", "_geo_merge"])
