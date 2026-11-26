@@ -25,6 +25,46 @@ Die [Grafik zu den Antriebsanteilen](figures/einwohnerdichte_und_antriebsanteile
 | Plug-in-Hybrid | 18'720 | 2.5 % |
 | Sonstige | 3'989 | 0.5 % |
 
+## Antriebsanteile nach Dichteklasse
+
+Wir teilen die Gemeinden nach ihrer Einwohnerdichte im Jahr 2024 in vier gleich grosse Gruppen ein. Jede Gemeinde bleibt in allen Jahren in derselben Gruppe. Die Tabelle zeigt für jede Gruppe den Median der Antriebsanteile im Jahr 2024. Wir nehmen den Median statt des Durchschnitts, weil einzelne Ausreisser ihn kaum verschieben.
+
+| Dichteklasse | Benzin | Diesel | Elektrisch | Normal-Hybrid | Plug-in-Hybrid | Sonstige |
+| --- | --- | --- | --- | --- | --- | --- |
+| tief | 61.5 % | 26.5 % | 4.4 % | 5.5 % | 1.7 % | 0.5 % |
+| mittel-tief | 60.8 % | 24.1 % | 5.8 % | 6.8 % | 1.9 % | 0.5 % |
+| mittel-hoch | 60.0 % | 24.8 % | 5.3 % | 7.3 % | 2.0 % | 0.5 % |
+| hoch | 59.6 % | 24.7 % | 5.1 % | 8.3 % | 2.5 % | 0.5 % |
+
+## Ausreisser
+
+Als Ausreisser zählt eine Gemeinde, wenn ihr Wert mehr als das 1.5-fache des Interquartilsabstands unter dem ersten oder über dem dritten Quartil liegt. Das ist dieselbe Regel, die auch ein Boxplot verwendet. Im Jahr 2024 fallen diese Gemeinden auf.
+
+| Kennzahl | Auffällige Gemeinden |
+| --- | --- |
+| Einwohnerdichte | Zürich, Opfikon, Kilchberg (ZH), Thalwil, Oberengstringen, Schlieren, Dietikon, Wallisellen, Geroldswil |
+| PKW-Quote | Kloten, Zürich |
+| Anteil Benzin | Schleinikon, Truttikon, Dietikon, Otelfingen, Dielsdorf, Urdorf, Schwerzenbach, Kloten, Wallisellen, Schlieren, Rümlang, Opfikon |
+| Anteil Diesel | Schlieren |
+| Anteil Elektrisch | Aesch (ZH) |
+| Anteil Normal-Hybrid | Rümlang, Opfikon, Kloten, Dietlikon |
+| Anteil Plug-in-Hybrid | Opfikon, Erlenbach (ZH), Uitikon, Küsnacht (ZH), Zumikon, Kloten, Zollikon, Herrliberg |
+| Anteil Sonstige | Flurlingen, Dorf, Dättlikon |
+
+Wir behalten alle Ausreisser, weil es echte Werte und keine Fehler sind. Gerade die dichten Gemeinden sind für unsere Frage wichtig. Damit sie das Ergebnis nicht verzerren, arbeiten wir mit dem Median und mit Spearman ρ, das nur die Reihenfolge der Gemeinden vergleicht. Zur Kontrolle berechnen wir ρ einmal mit allen Gemeinden und einmal ohne die Flughafengemeinden Kloten, Opfikon, Rümlang.
+
+| Antriebsart | ρ mit allen Gemeinden | ρ ohne Flughafengemeinden |
+| --- | --- | --- |
+| Benzin | -0.32 | -0.30 |
+| Diesel | -0.14 | -0.16 |
+| Elektrisch | +0.15 | +0.14 |
+| Normal-Hybrid | +0.67 | +0.66 |
+| Plug-in-Hybrid | +0.48 | +0.47 |
+| Sonstige | -0.06 | -0.04 |
+
+Die grösste Abweichung beträgt 0.02. Die Ausreisser verändern das Ergebnis also kaum.
+
+
 ## Stadt Zürich
 
 In der Stadt Zürich gab es 137'225 Personenwagen im Jahr 2010 und 138'873 im Jahr 2024. Die [Stadtgrafik](figures/stadt_zuerich_antriebsarten_zeitreihe.png) zeigt, wie sich die einzelnen Antriebsarten entwickelt haben.
