@@ -3,3 +3,21 @@ venv/
 __pycache__/
 *.py[cod]
 data/external/
+# Editor
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Tests
+.pytest_cache/
+
+# Office-Sperrdateien
+~$*
+
+# Geheime Einstellungen
+.env
