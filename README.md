@@ -42,3 +42,11 @@ Den [ganzen Download](https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/s
 Seit 2010 haben sich einige Gemeinden zusammengeschlossen. Damit wir alle Jahre vergleichen können, rechnet `src/clean.py` alle Werte auf den Gemeindestand vom 1. Januar 2026 um. Deshalb zeigen auch die Karten für 2024 die Grenzen von 2026.
 
 Die Fläche einer Gemeinde bleibt über alle Jahre gleich. Die Dichte früherer Jahre bezieht sich also immer auf die heutigen Grenzen.
+
+## Tests
+
+Die Tests prüfen unter anderem, dass alle 160 Gemeinden in jedem Jahr vorkommen, keine Werte fehlen und die Anteile zusammen 100 % ergeben. Du startest sie im Projektordner mit diesem Befehl.
+
+```bash
+python -m pytest
+```
